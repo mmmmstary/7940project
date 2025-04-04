@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatbot
+  template:
+    metadata:
+      labels:
+        app: chatbot
+    spec:
+      containers:
+      - name: chatbot
+        image: mmmmystary/test:v4
+        ports:
+        - containerPort: 80
+        envFrom:
+          - secretRef:
+             name: database
+        volumeMounts:
+          - name: volume
+            mountPath: /key
+      volumes:
+        - name: volume
+          secret:
+           secretName: database
+
