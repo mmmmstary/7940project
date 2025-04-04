@@ -96,14 +96,45 @@ def hello(update: Update, context: CallbackContext) -> None:
     except (IndexError, ValueError):
         update.message.reply_text('Usage: /hello <keyword>')
 
-#def get_secret(secret_id, project_id):
-#    """
-#    获取 GCP Secret Manager 中的密钥
-#    """
-#    client = secretmanager.SecretManagerServiceClient()
-#    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-#    response = client.access_secret_version(name=name)
-#    return response.payload.data.decode("UTF-8")
+def find_matches(update: Update, context: CallbackContext) -> None:
+    """Find users with matching interests based on user ID and interests."""
+    try:
+        # 解析用户输入的唯一ID和兴趣
+        user_id = context.args[0]  # 用户的唯一ID
+        user_interests = context.args[1:]  # 用户的兴趣列表
+
+        if not user_interests:
+            update.message.reply_text('Please provide your interests. Usage: /find_matches <user_id> <interest1> <interest2> ...')
+            return
+
+        # 存储用户信息到 Firebase
+        ref = db.reference(f'users/{user_id}')
+        ref.set({'interests': user_interests})
+
+        # 获取所有用户及其兴趣
+        all_users = db.reference('users').get()
+        if not all_users:
+            update.message.reply_text('No users found.')
+            return
+
+        # 找出与当前用户兴趣匹配的用户
+        matched_users = []
+        for uid, data in all_users.items():
+            if uid != user_id and 'interests' in data:
+                common_interests = set(data['interests']) & set(user_interests)
+                if common_interests:
+                    matched_users.append((uid, list(common_interests)))
+
+        if matched_users:
+            reply = "You matched with the following users based on common interests:\n"
+            for user in matched_users:
+                reply += f"User ID: {user[0]}, Common Interests: {', '.join(user[1])}\n"
+            update.message.reply_text(reply)
+        else:
+            update.message.reply_text('No matches found.')
+    except Exception as e:
+        update.message.reply_text(f'Error: {str(e)}')
+
 
 def main():
     # 从环境变量获取配置文件路径
@@ -138,7 +169,7 @@ def main():
     dispatcher.add_handler(CommandHandler("get", get_value))
     dispatcher.add_handler(CommandHandler("delete", delete_value))
     dispatcher.add_handler(CommandHandler("hello", hello))
-    
+    dispatcher.add_handler(CommandHandler("find_matches", find_matches))
 
     # Start the Bot
     updater.start_polling()
